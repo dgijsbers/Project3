@@ -13,7 +13,7 @@ import tweepy
 import twitter_info # same deal as always...
 import json
 import sqlite3
-
+import re
 ## Your name: Demery Gijsbers
 ## The names of anyone you worked with on this project:
 
@@ -87,7 +87,7 @@ print (umich_tweets)
 # You will be creating a database file: project3_tweets.db
 # Note that running the tests will actually create this file for you, but will not do anything else to it like create any tables; you should still start it in exactly the same way as if the tests did not do that! 
 # The database file should have 2 tables, and each should have the following columns... 
-conn = sqlite3.connect('Tweets.db')
+conn = sqlite3.connect('project3_tweets.db')
 cur = conn.cursor()
 # table Tweets, with columns:
 # - tweet_id (containing the string id belonging to the Tweet itself, from the data you got from Twitter -- note the id_str attribute) -- this column should be the PRIMARY KEY of this table
@@ -98,7 +98,7 @@ cur = conn.cursor()
 cur.execute('DROP TABLE IF EXISTS Tweets')
 table_spec ='CREATE TABLE IF NOT EXISTS '
 table_spec +='Tweets (tweet_id TEXT PRIMARY KEY, '
-table_spec += 'user_id TEXT, time_posted TIMESTAMP, tweet_text TEXT, retweet_count INTEGER)'
+table_spec += 'user_id TEXT, time_posted TIMESTAMP, tweet_text TEXT, retweets INTEGER)'
 cur.execute(table_spec)
 # table Users, with columns:
 # - user_id (containing the string id belonging to the user, from twitter data -- note the id_str attribute) -- this column should be the PRIMARY KEY of this table
@@ -107,7 +107,7 @@ cur.execute(table_spec)
 # - description (text containing the description of that user on Twitter, e.g. "Lecturer IV at UMSI focusing on programming" or "I tweet about a lot of things" or "Software engineer, librarian, lover of dogs..." -- whatever it is. OK if an empty string)
 cur.execute('DROP TABLE IF EXISTS Users')
 table_two = 'CREATE TABLE IF NOT EXISTS '
-table_two += 'Users (user_id TECT PRIMARY KEY, '
+table_two += 'Users (user_id TEXT PRIMARY KEY, '
 table_two += 'screen_name TEXT, num_favs INTEGER, description TEXT)'
 cur.execute(table_two)
 
@@ -116,11 +116,12 @@ cur.execute(table_two)
 # NOTE: For example, if the user with the "TedXUM" screen name is mentioned in the umich timeline, 
 #that Twitter user's info should be in the Users table, etc.
 
-def get_tweets_from_user(username):
-	twitter_results = api.user_timeline(username)
-	for tweet in umich_tweets:
-		cur.execute('INSERT INTO Users VALUES (?, ?, ?, ?)', (tweet['user']['id_str'], tweet['user']['screen_name'], tweet['user']['favorite_count'], tweet['user']['description']))
+
+for tweet in umich_tweets:
+	cur.execute('INSERT OR IGNORE INTO Users VALUES (?, ?, ?, ?)', (tweet['user']['id_str'], tweet['user']['screen_name'], tweet['user']['favourites_count'], tweet['user']['description']))
+	cur.execute('INSERT INTO Tweets VALUES (?, ?, ?, ?, ?)', (tweet['id_str'], tweet['user']['screen_name'], tweet['created_at'], tweet['user']['favourites_count'], tweet['user']['description']))
 conn.commit()
+
 ## You should load into the Tweets table: 
 # Info about all the tweets (at least 20) that you gather from the umich timeline.
 # NOTE: Be careful that you have the correct user ID reference in the user_id column! See below hints.
@@ -135,42 +136,53 @@ conn.commit()
 
 
 
-
-
-
-
-
-
-
-
 ## Task 3 - Making queries, saving data, fetching data
 
 # All of the following sub-tasks require writing SQL statements and executing them using Python.
 
 # Make a query to select all of the records in the Users database. Save the list of tuples in a 
 #variable called users_info.
+query = "SELECT * FROM Users"
+cur.execute(query)
+users_info = cur.fetchall()
 
 # Make a query to select all of the user screen names from the database. Save a resulting list of 
 #strings (NOT tuples, the strings inside them!) in the variable screen_names. HINT: a list 
 #comprehension will make this easier to complete!
+query = "SELECT screen_name FROM Users"
+cur.execute(query)
+screen_names_tup = cur.fetchall()
+for word in screen_names_tup:
+	screen_names = list(word)
+
 
 
 # Make a query to select all of the tweets (full rows of tweet information) that have been retweeted
 # more than 25 times. Save the result (a list of tuples, or an empty list) in a variable called 
 #more_than_25_rts.
+query = "SELECT * FROM Tweets WHERE retweets>25"
+cur.execute(query)
+more_than_25_rts = cur.fetchall()
 
 
 
 # Make a query to select all the descriptions (descriptions only) of the users who have favorited more than 
 #25 tweets. Access all those strings, and save them in a variable called descriptions_fav_users, which should
 # ultimately be a list of strings.
-
+query = "SELECT description FROM Users WHERE num_favs > 25"
+cur.execute(query)
+descriptions_fav_users_tup = cur.fetchall()
+for word in descriptions_fav_users_tup:
+	descriptions_fav_users = list(word)
+	
 
 
 # Make a query using an INNER JOIN to get a list of tuples with 2 elements in each tuple: the user screenname 
 #and the text of the tweet -- for each tweet that has been retweeted more than 50 times. Save the resulting 
 #list of tuples in a variable called joined_result.
-
+query = "SELECT screen_name FROM Users INNER JOIN Tweets ON Tweets.tweet_text WHERE Tweets.retweets>50"
+cur.execute(query)
+joined_result = cur.fetchall()
 
 
 
@@ -179,12 +191,18 @@ conn.commit()
 ## Use a set comprehension to get a set of all words (combinations of characters separated by whitespace) 
 #among the descriptions in the descriptions_fav_users list. Save the resulting set in a variable called 
 #description_words.
-
+my_list = []
+for x in descriptions_fav_users:
+	find = re.findall(r"\w+", x)
+	my_list.append(find)
+for new in my_list:
+	description_words = {word for word in new}
 
 
 ## Use a Counter in the collections library to find the most common character among all of the descriptions
 # in the descriptions_fav_users list. Save that most common character in a variable called most_common_char. 
 #Break any tie alphabetically (but using a Counter will do a lot of work for you...).
+most_common_char = collections.Counter(description_words).most_common(1)
 
 
 
