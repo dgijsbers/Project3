@@ -71,6 +71,8 @@ def get_user_tweets(username):
 	for tweet in twitter_results:
 		tweet_texts.append(tweet)
 	return tweet_texts[:20]
+#print("aaaaaa")
+	print(tweet_texts[:20])
 
 
 
@@ -115,11 +117,16 @@ cur.execute(table_two)
 # The umich user, and all of the data about users that are mentioned in the umich timeline. 
 # NOTE: For example, if the user with the "TedXUM" screen name is mentioned in the umich timeline, 
 #that Twitter user's info should be in the Users table, etc.
-
-
+statement = 'INSERT OR IGNORE INTO Users VALUES (?, ?, ?, ?)'
+info_list = []
 for tweet in umich_tweets:
-	cur.execute('INSERT OR IGNORE INTO Users VALUES (?, ?, ?, ?)', (tweet['user']['id_str'], tweet['user']['screen_name'], tweet['user']['favourites_count'], tweet['user']['description']))
-	cur.execute('INSERT INTO Tweets VALUES (?, ?, ?, ?, ?)', (tweet['id_str'], tweet['user']['screen_name'], tweet['created_at'], tweet['user']['favourites_count'], tweet['user']['description']))
+	#print(tweet['entities']['user_mentions'][1:2][2])
+	#print("LLLLLLLL")
+	#cur.execute('INSERT OR IGNORE INTO Users VALUES (?, ?, ?, ?)', 
+	info_list.append((tweet['user']['id_str'], tweet['user']['screen_name'], tweet['user']['favourites_count'], tweet['user']['description']))
+	for tup in info_list:
+		cur.execute(statement, tup)
+	cur.execute('INSERT INTO Tweets VALUES (?, ?, ?, ?, ?)', (tweet['id_str'], tweet['user']['screen_name'], tweet['created_at'], tweet['text'], tweet['retweet_count']))
 conn.commit()
 
 ## You should load into the Tweets table: 
@@ -142,48 +149,53 @@ conn.commit()
 
 # Make a query to select all of the records in the Users database. Save the list of tuples in a 
 #variable called users_info.
-query = "SELECT * FROM Users"
+query = "SELECT user_id, screen_name, num_favs, description FROM Users"
 cur.execute(query)
 users_info = cur.fetchall()
+#users_info.append(users_info_tup)
+print("<><><><><><><>")
+print(users_info)
 
 # Make a query to select all of the user screen names from the database. Save a resulting list of 
 #strings (NOT tuples, the strings inside them!) in the variable screen_names. HINT: a list 
 #comprehension will make this easier to complete!
-query = "SELECT screen_name FROM Users"
+query = "SELECT user_id FROM Tweets"
 cur.execute(query)
 screen_names_tup = cur.fetchall()
 for word in screen_names_tup:
 	screen_names = list(word)
+print(screen_names)
 
 
 
 # Make a query to select all of the tweets (full rows of tweet information) that have been retweeted
 # more than 25 times. Save the result (a list of tuples, or an empty list) in a variable called 
 #more_than_25_rts.
-query = "SELECT * FROM Tweets WHERE retweets>25"
+#more_than_25_rts = []
+query = "SELECT * FROM Tweets WHERE retweets > 5"
 cur.execute(query)
 more_than_25_rts = cur.fetchall()
+
 
 
 
 # Make a query to select all the descriptions (descriptions only) of the users who have favorited more than 
 #25 tweets. Access all those strings, and save them in a variable called descriptions_fav_users, which should
 # ultimately be a list of strings.
-query = "SELECT description FROM Users WHERE num_favs > 25"
+query = "SELECT description FROM Users WHERE num_favs > 5"
 cur.execute(query)
 descriptions_fav_users_tup = cur.fetchall()
-for word in descriptions_fav_users_tup:
-	descriptions_fav_users = list(word)
+for description in descriptions_fav_users_tup:
+	descriptions_fav_users = list(description)
 	
 
 
 # Make a query using an INNER JOIN to get a list of tuples with 2 elements in each tuple: the user screenname 
 #and the text of the tweet -- for each tweet that has been retweeted more than 50 times. Save the resulting 
 #list of tuples in a variable called joined_result.
-query = "SELECT screen_name FROM Users INNER JOIN Tweets ON Tweets.tweet_text WHERE Tweets.retweets>50"
+query = "SELECT screen_name FROM Users INNER JOIN Tweets ON Tweets.retweets>50"
 cur.execute(query)
 joined_result = cur.fetchall()
-
 
 
 ## Task 4 - Manipulating data with comprehensions & libraries
@@ -191,19 +203,28 @@ joined_result = cur.fetchall()
 ## Use a set comprehension to get a set of all words (combinations of characters separated by whitespace) 
 #among the descriptions in the descriptions_fav_users list. Save the resulting set in a variable called 
 #description_words.
-my_list = []
-for x in descriptions_fav_users:
-	find = re.findall(r"\w+", x)
-	my_list.append(find)
-for new in my_list:
-	description_words = {word for word in new}
+#descriptions_fav_users = {word for word }
+#my_list = []
+#for x in descriptions_fav_users:
+#	find = re.findall(r"\w+", x)
+#	my_list.append(find)
+#for new in my_list:
 
+description_words = {word for line in descriptions_fav_users for word in line.split()}
+for word in description_words:
+	print(word)
+
+print("--------")
 
 ## Use a Counter in the collections library to find the most common character among all of the descriptions
 # in the descriptions_fav_users list. Save that most common character in a variable called most_common_char. 
 #Break any tie alphabetically (but using a Counter will do a lot of work for you...).
-most_common_char = collections.Counter(description_words).most_common(1)
-
+for item in description_words:
+	for word in item:
+		most_common_char_list = collections.Counter(item).most_common(1)
+most_common_char = most_common_char_list[0][0]
+#print(most_common_char_list)
+print(most_common_char)
 
 
 ## Putting it all together...
@@ -213,11 +234,28 @@ most_common_char = collections.Counter(description_words).most_common(1)
 # comprehension, list comprehension(s). Y
 # You should save the final dictionary in a variable called twitter_info_diction.
 
+tweet_txt = []
+names = []
+my_tweets = get_user_tweets('umich')
 
+for tweet in my_tweets:
+	names.append(tweet['user']['screen_name'])
+	#for tweet in range(20):
+	tweet_txt.append(tweet['text'])
 
+print("_______")
+print(names)
+print(tweet_txt)
+print("********")
+#for k,v in zip(screen_names, tweet_txt):
+
+twitter_info_diction = {k: v for k,v in zip(names, tweet_txt)}
+print(twitter_info_diction)
+
+#print(twitter_info_diction(range(20)))
 ### IMPORTANT: MAKE SURE TO CLOSE YOUR DATABASE CONNECTION AT THE END OF THE FILE HERE SO YOU DO NOT LOCK 
 #YOUR DATABASE (it's fixable, but it's a pain). ###
-
+conn.close()
 
 ###### TESTS APPEAR BELOW THIS LINE ######
 ###### Note that the tests are necessary to pass, but not sufficient -- must make sure you've followed 
